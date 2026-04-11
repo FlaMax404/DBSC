@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Device-Bound Session Credentials For Firefox",
+  "version": "0.0.6",
+  "description": "Enables device-bound session credentials on your Firefox Browser.",
+  "developer": {
+    "name": "Anas Sarraj",
+    "url": "https://github.com/FlaMax404"
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "@addon-example",
+      "strict_min_version": "109.0"
+    }
+  },
+
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "cookies"
+  ],
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "scripts": ["app.js"]
+  },
+
+  "action": {
+    "default_icon": {
+      "19": "icons/open-padlock.png",
+      "38": "icons/open-padlock-38.png"
+    },
+    "default_title": "Device-Bound Session Credentials For Firefox",
+    "default_popup": "popup/popup.html"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+
+  "icons": {
+    "48": "icons/padlock.png",
+    "96": "icons/padlock.png"
+  }
+}
