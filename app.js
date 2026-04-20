@@ -1,19 +1,31 @@
 console.log("Background script 'app.js' started successfully!");
 
+// The name of your local application. This MUST match the name
+// you define in your Native Application Manifest later.
 const NATIVE_APP_NAME = "com.dbsc.local_messenger";
 let nativePort;
 
+// In-memory cache to prevent slow storage lookups on every single HTTP request
+let domainTokensCache = {};
+
+// 1. Connect to the local machine program
 function connectToNativeApp() {
-  if (nativePort) return; 
-  
+  if (nativePort) return; // Prevent multiple active connections
+
   nativePort = browser.runtime.connectNative(NATIVE_APP_NAME);
 
+  // 2. Listen for encrypted credentials or responses from the local machine
   nativePort.onMessage.addListener((message) => {
     console.log("Received response from local program:", message);
 
     if (message.action === "encryption_complete") {
-      browser.storage.local.set({ boundSessionToken: message.token });
-      console.log("DBSC token bound and stored.");
+      // Store the bound token tied to the specific domain to prevent leaking
+      const domain = message.domain;
+      if (domain) {
+        domainTokensCache[domain] = message.token;
+        browser.storage.local.set({ domainTokens: domainTokensCache });
+        console.log(`DBSC token bound and stored for domain: ${domain}`);
+      }
     } else if (message.action === "set_secure_cookie") {
       // Example: Middleware commands the browser to set an encrypted session cookie
       browser.cookies.set({
@@ -87,6 +99,12 @@ browser.runtime.onMessage.addListener((message) => {
 browser.storage.local.get("isEnabled").then((result) => {
   const isEnabled = result.isEnabled || false;
   updateIcon(isEnabled); // Default to disabled
+
+  // Load existing tokens into memory cache
+  browser.storage.local.get("domainTokens").then((tokenResult) => {
+    domainTokensCache = tokenResult.domainTokens || {};
+  });
+
   if (isEnabled) {
     connectToNativeApp();
   }
@@ -99,8 +117,21 @@ browser.webRequest.onHeadersReceived.addListener(
   (details) => {
     if (!nativePort) return {}; // Skip if disabled
 
-    // TODO: Add logic here to detect specific DBSC challenges or authentication cookies
-    // from the server's response headers, and trigger encryptSessionCredentials(data).
+    // Look for a challenge header from the server asking for a Device Bound Session
+    const challengeHeader = details.responseHeaders.find(
+      (header) => header.name.toLowerCase() === "sec-session-challenge",
+    );
+
+    if (challengeHeader) {
+      const domain = new URL(details.url).hostname;
+      console.log(
+        `Challenge received from ${domain}. Sending to native middleware...`,
+      );
+      encryptSessionCredentials({
+        domain: domain,
+        challenge: challengeHeader.value,
+      });
+    }
 
     return { responseHeaders: details.responseHeaders };
   },
@@ -113,9 +144,16 @@ browser.webRequest.onBeforeSendHeaders.addListener(
   (details) => {
     if (!nativePort) return {}; // Skip if disabled
 
-    // TODO: Retrieve the bound session token from storage
-    // and inject it into the request headers for the server to verify.
-    // Example: details.requestHeaders.push({ name: "Sec-Session-Response", value: "your-bound-token" });
+    const domain = new URL(details.url).hostname;
+    const boundToken = domainTokensCache[domain];
+
+    if (boundToken) {
+      // Inject the bound session token into the request headers for the server to verify
+      details.requestHeaders.push({
+        name: "Sec-Session-Response",
+        value: boundToken,
+      });
+    }
 
     return { requestHeaders: details.requestHeaders };
   },
