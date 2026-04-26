@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Device-Bound Session Credentials For Firefox",
-  "version": "0.0.6",
+  "name": "Secure-DBSC For Firefox",
+  "version": "0.0.8",
   "description": "Enables device-bound session credentials on your Firefox Browser.",
   "developer": {
     "name": "Anas Sarraj",
@@ -33,7 +33,7 @@
       "19": "icons/open-padlock.png",
       "38": "icons/open-padlock-38.png"
     },
-    "default_title": "Device-Bound Session Credentials For Firefox",
+    "default_title": "Secure-DBSC For Firefox",
     "default_popup": "popup/popup.html"
   },
 
