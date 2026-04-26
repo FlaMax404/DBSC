@@ -1,7 +1,0 @@
-{
-  "name": "com.dbsc.local_messenger",
-  "description": "Device-Bound Session Credentials TPM Middleware",
-  "path": "f:\\Final Year Project DBSC\\middleware\\run_middleware.bat",
-  "type": "stdio",
-  "allowed_extensions": ["@addon-example"]
-}

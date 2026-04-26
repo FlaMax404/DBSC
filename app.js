@@ -14,6 +14,8 @@ let pendingChallenges = {};
 function connectToNativeApp() {
   if (nativePort) return; // Prevent multiple active connections
 
+  lastError = null; // Clear previous errors on new connection attempt
+
   nativePort = browser.runtime.connectNative(NATIVE_APP_NAME);
 
   // 2. Listen for encrypted credentials or responses from the local machine
@@ -72,6 +74,8 @@ function disconnectFromNativeApp() {
     nativePort = null;
     console.log("Disconnected from local program (by the user).");
   }
+
+  lastError = null; // Clear any persisting errors when turned off
 }
 
 // 3. Function to trigger the DBSC encryption process
@@ -122,12 +126,17 @@ browser.runtime.onMessage.addListener((message) => {
       connectToNativeApp();
     } else {
       disconnectFromNativeApp();
+
+      // Clear cached tokens so the session doesn't remain "active" when toggled off
+      domainTokensCache = {};
+      browser.storage.local.remove("domainTokens");
     }
   } else if (message.action === "getStatus") {
     // Respond with the current native connection and session status
     const isMiddlewareConnected = !!nativePort;
     const domain = message.domain;
-    const isSessionBound = domain ? !!domainTokensCache[domain] : false;
+    const isSessionBound =
+      isMiddlewareConnected && domain ? !!domainTokensCache[domain] : false;
 
     return Promise.resolve({
       isMiddlewareConnected,

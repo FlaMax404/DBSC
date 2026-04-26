@@ -15,6 +15,14 @@ function updateUI(isEnabled) {
 }
 
 function updateAdvancedStatus() {
+  // If DBSC is disabled, immediately hide errors and skip querying the background
+  if (!toggleSwitch.checked) {
+    middlewareStatusText.textContent = "Middleware: 🔴 Disconnected";
+    sessionStatusText.textContent = "Current Session DBSC: 🔓 Inactive";
+    errorStatusText.style.display = "none";
+    return;
+  }
+
   browser.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
     if (tabs.length === 0) return;
 
