@@ -7,6 +7,8 @@ let nativePort;
 
 // In-memory cache to prevent slow storage lookups on every single HTTP request
 let domainTokensCache = {};
+let lastError = null;
+let pendingChallenges = {};
 
 // 1. Connect to the local machine program
 function connectToNativeApp() {
@@ -19,13 +21,26 @@ function connectToNativeApp() {
     console.log("Received response from local program:", message);
 
     if (message.action === "encryption_complete") {
-      // Store the bound token tied to the specific domain to prevent leaking
       const domain = message.domain;
+      if (pendingChallenges[domain]) {
+        clearTimeout(pendingChallenges[domain]);
+        delete pendingChallenges[domain];
+      }
+
+      // Store the bound token tied to the specific domain to prevent leaking
       if (domain) {
         domainTokensCache[domain] = message.token;
         browser.storage.local.set({ domainTokens: domainTokensCache });
         console.log(`DBSC token bound and stored for domain: ${domain}`);
       }
+    } else if (message.action === "encryption_failed") {
+      const domain = message.domain;
+      if (pendingChallenges[domain]) {
+        clearTimeout(pendingChallenges[domain]);
+        delete pendingChallenges[domain];
+      }
+      lastError = message.error || "Middleware encountered an error.";
+      console.error("DBSC Encryption Failed:", lastError);
     } else if (message.action === "set_secure_cookie") {
       // Example: Middleware commands the browser to set an encrypted session cookie
       browser.cookies.set({
@@ -43,6 +58,9 @@ function connectToNativeApp() {
       "Disconnected from local program.",
       browser.runtime.lastError,
     );
+    lastError = browser.runtime.lastError
+      ? browser.runtime.lastError.message
+      : "Middleware disconnected unexpectedly.";
     nativePort = null;
   });
   console.log("Connected to local program.");
@@ -59,7 +77,20 @@ function disconnectFromNativeApp() {
 // 3. Function to trigger the DBSC encryption process
 function encryptSessionCredentials(credentials) {
   if (!nativePort) return; // Do not send messages if disconnected
+
+  const domain = credentials.domain;
+  lastError = null; // Clear previous errors
+
   nativePort.postMessage({ action: "encrypt_session", data: credentials });
+
+  // Detect if the middleware fails to respond within 5 seconds
+  if (pendingChallenges[domain]) {
+    clearTimeout(pendingChallenges[domain]);
+  }
+  pendingChallenges[domain] = setTimeout(() => {
+    lastError = `Middleware timeout: No response for ${domain}`;
+    delete pendingChallenges[domain];
+  }, 5000);
 }
 
 // --- Icon and State Management ---
@@ -92,6 +123,17 @@ browser.runtime.onMessage.addListener((message) => {
     } else {
       disconnectFromNativeApp();
     }
+  } else if (message.action === "getStatus") {
+    // Respond with the current native connection and session status
+    const isMiddlewareConnected = !!nativePort;
+    const domain = message.domain;
+    const isSessionBound = domain ? !!domainTokensCache[domain] : false;
+
+    return Promise.resolve({
+      isMiddlewareConnected,
+      isSessionBound,
+      lastError,
+    });
   }
 });
 

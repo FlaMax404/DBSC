@@ -11,6 +11,28 @@
         ><input type="checkbox" id="toggle-switch" /><span class="slider"></span
       ></label>
     </div>
+    <!-- Add this beneath your DBSC toggle switch -->
+    <div
+      class="status-container"
+      style="margin-top: 15px; border-top: 1px solid #ccc; padding-top: 10px"
+    >
+      <p id="session-status" style="margin-bottom: 5px">
+        Current Session DBSC: Checking...
+      </p>
+      <p id="middleware-status" style="margin-bottom: 5px">
+        Middleware: Checking...
+      </p>
+      <p
+        id="error-status"
+        style="color: red; font-size: 12px; margin-bottom: 15px; display: none"
+      ></p>
+    </div>
+
+    <!-- Add the GitHub redirect button -->
+    <button id="github-btn" style="width: 100%; padding: 8px; cursor: pointer">
+      Do not have the middleware? Get it here
+    </button>
+
     <script src="/popup/popup.js"></script>
   </body>
 </html>

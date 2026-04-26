@@ -51,6 +51,11 @@ def sign_with_tpm(challenge_data):
         
         # --- MOCK IMPLEMENTATION FOR PROTOTYPING ---
         # We append a mock signature to prove the communication loop works
+
+
+        #How do I implement real TPM 2.0 signing in `middleware.py` instead of the mock signature?
+
+
         mock_signature = f"tpm2_signed_{challenge_data}_with_hw_key"
         return mock_signature
         
@@ -72,7 +77,10 @@ def main():
             # Pass the server's challenge to the TPM to be signed
             bound_token = sign_with_tpm(challenge)
             
-            send_message({"action": "encryption_complete", "domain": domain, "token": bound_token})
+            if bound_token.startswith("error_signing:"):
+                send_message({"action": "encryption_failed", "domain": domain, "error": bound_token})
+            else:
+                send_message({"action": "encryption_complete", "domain": domain, "token": bound_token})
 
 if __name__ == '__main__':
     main()
