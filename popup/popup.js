@@ -83,5 +83,5 @@ toggleSwitch.addEventListener("change", () => {
 
 // GitHub Redirect Button
 githubBtn.addEventListener("click", () => {
-  browser.tabs.create({ url: "https://github.com/FlaMax404/DBSC/" });
+  browser.tabs.create({ url: "https://github.com/FlaMax404/DBSC/releases/tag/Secure-DBSC" });
 });
