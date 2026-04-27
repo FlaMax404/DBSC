@@ -46,5 +46,8 @@ def uninstall_host():
         
     print("\nUninstallation complete! The DBSC extension can no longer launch the middleware.")
 
+    if getattr(sys, 'frozen', False):
+        input("\nPress Enter to exit...")
+
 if __name__ == '__main__':
     uninstall_host()
