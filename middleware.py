@@ -1,7 +1,115 @@
+import os
 import sys
 import json
 import struct
 import subprocess
+import platform
+from pathlib import Path
+
+HOST_NAME = "com.dbsc.local_messenger"
+EXTENSION_ID = "@addon-example" # Must match the ID in your manifest.json
+
+# ---------------------------------------------------------
+# Installation & Verification Logic
+# ---------------------------------------------------------
+def ensure_installed(verbose=False):
+    """Checks if registry/manifest are configured, and installs them if missing."""
+    is_compiled = getattr(sys, 'frozen', False)
+    
+    # When running as a compiled executable, sys.executable points to the .exe itself.
+    if is_compiled:
+        executable_path = Path(sys.executable).resolve()
+    else:
+        executable_path = Path(__file__).resolve()
+
+    current_dir = executable_path.parent
+    manifest_path = current_dir / f"{HOST_NAME}.json"
+    needs_install = False
+
+    # 1. Check if the manifest exists and points to this exact executable
+    if not manifest_path.exists():
+        needs_install = True
+    else:
+        try:
+            with open(manifest_path, 'r') as f:
+                manifest = json.load(f)
+                if manifest.get("path") != str(executable_path):
+                    needs_install = True
+        except Exception:
+            needs_install = True
+
+    # 2. Check if the OS registry/symlink exists and points to our manifest
+    if sys.platform.startswith('win'):
+        import winreg
+        registry_path = rf"Software\Mozilla\NativeMessagingHosts\{HOST_NAME}"
+        try:
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path, 0, winreg.KEY_READ)
+            val, _ = winreg.QueryValueEx(key, "")
+            winreg.CloseKey(key)
+            if val != str(manifest_path):
+                needs_install = True
+        except Exception:
+            needs_install = True
+    else:
+        if sys.platform.startswith('darwin'):
+            target_path = Path.home() / f"Library/Application Support/Mozilla/NativeMessagingHosts/{HOST_NAME}.json"
+        else:
+            target_path = Path.home() / f".mozilla/native-messaging-hosts/{HOST_NAME}.json"
+            
+        if not target_path.exists() or not target_path.is_symlink() or os.readlink(target_path) != str(manifest_path):
+            needs_install = True
+
+    if not needs_install:
+        if verbose:
+            print("Middleware is already correctly installed and registered.")
+        return
+
+    if verbose:
+        print("Installing and registering middleware...")
+
+    # --- Proceed with Installation ---
+    manifest = {
+        "name": HOST_NAME,
+        "description": "Device-Bound Session Credentials TPM Middleware",
+        "path": str(executable_path),
+        "type": "stdio",
+        "allowed_extensions": [EXTENSION_ID]
+    }
+    
+    try:
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+        if verbose: print(f"Created manifest file at: {manifest_path}")
+    except Exception as e:
+        if verbose: print(f"[ERROR] Failed to write manifest file: {e}")
+        if verbose: sys.exit(1)
+        return # Fail silently if launched by Firefox and lacking permissions
+
+    if sys.platform.startswith('win'):
+        import winreg
+        try:
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, registry_path)
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, str(manifest_path))
+            winreg.CloseKey(key)
+            if verbose: print(f"Successfully registered host in Windows Registry: HKCU\\{registry_path}")
+        except Exception as e:
+            if verbose: print(f"[ERROR] Failed to write to registry: {e}")
+            if verbose: sys.exit(1)
+    else:
+        try:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            if target_path.exists(): target_path.unlink()
+            target_path.symlink_to(manifest_path)
+            if verbose: print(f"Successfully registered host for {sys.platform} at: {target_path}")
+        except Exception as e:
+            if verbose: print(f"[ERROR] Failed to register host: {e}")
+            if verbose: sys.exit(1)
+
+    if not sys.platform.startswith('win') and not getattr(sys, 'frozen', False):
+        os.chmod(executable_path, 0o755)
+
+    if verbose:
+        print("\nInstallation complete! You can now use the DBSC extension in Firefox.")
 
 # ---------------------------------------------------------
 # Firefox Native Messaging Protocol Implementation
@@ -66,6 +174,16 @@ def sign_with_tpm(challenge_data):
 # Main Event Loop
 # ---------------------------------------------------------
 def main():
+    # If no arguments are provided, it means a user double-clicked the file.
+    if len(sys.argv) == 1:
+        ensure_installed(verbose=True)
+        if getattr(sys, 'frozen', False):
+            input("\nPress Enter to exit...")
+        sys.exit(0)
+        
+    # Otherwise, Firefox launched it. Verify installation silently and run the middleware loop.
+    ensure_installed(verbose=False)
+
     while True:
         msg = get_message()
         
