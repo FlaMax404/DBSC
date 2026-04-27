@@ -19,15 +19,11 @@ Firefox needs to be explicitly told where this middleware is located. You can in
 ### Option 1: Running from Python Source
 If you have Python installed on your system:
 1. Open your terminal or command prompt.
-2. Navigate to the extension's directory:
-   ```bash
-   cd "extension 1"
-   ```
-3. Run the installation script:
+2. Run the installation script:
    ```bash
    python install_host.py
    ```
-   *Note: This will generate a `com.dbsc.local_messenger.json` manifest file and automatically configure the necessary Windows Registry keys or macOS/Linux directories so Firefox knows how to launch the middleware.*
+   *Note: This will generate a `com.dbsc.local_messenger.json` manifest file and automatically configure the necessary Windows Registry keys so Firefox knows how to launch the middleware.*
 
 ### Option 2: Running via Standalone Executable (If Compiled)
 The provided standalone executable (`middleware.exe`), Python is not required:
